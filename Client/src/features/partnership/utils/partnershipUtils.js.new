@@ -6,25 +6,21 @@
  */
 export const filterBySearch = (partners, searchQuery) => {
   if (!searchQuery.trim()) return partners;
-
+  
   const query = searchQuery.toLowerCase().trim();
-  return partners.filter((partner) => {
+  return partners.filter(partner => {
     // Check if partner has the nested structure or the flat structure
-    const partnerName = partner.partner_institution?.name || partner.name || "";
-    const partnerType =
-      partner.partner_institution?.typeOfOrganization || partner.type || "";
-    const contactName =
-      partner.partner_contact_person?.name || partner.contact || "";
-    const partnerStatus = partner.status || "";
-    const college = partner.aau_contact?.interestedCollegeOrDepartment || "";
-
-    return (
-      partnerName.toLowerCase().includes(query) ||
-      partnerType.toLowerCase().includes(query) ||
-      contactName.toLowerCase().includes(query) ||
-      partnerStatus.toLowerCase().includes(query) ||
-      college.toLowerCase().includes(query)
-    );
+    const partnerName = partner.partner_institution?.name || partner.name || '';
+    const partnerType = partner.partner_institution?.typeOfOrganization || partner.type || '';
+    const contactName = partner.partner_contact_person?.name || partner.contact || '';
+    const partnerStatus = partner.status || '';
+    const college = partner.aau_contact?.interestedCollegeOrDepartment || '';
+    
+    return partnerName.toLowerCase().includes(query) ||
+           partnerType.toLowerCase().includes(query) ||
+           contactName.toLowerCase().includes(query) ||
+           partnerStatus.toLowerCase().includes(query) ||
+           college.toLowerCase().includes(query);
   });
 };
 
@@ -35,42 +31,39 @@ export const filterBySearch = (partners, searchQuery) => {
  * @returns {Array} - Filtered partners
  */
 export const applyFilters = (partners, filters) => {
-  return partners.filter((partner) => {
+  return partners.filter(partner => {
     // Get values based on the structure
-    const partnerType =
-      partner.partner_institution?.typeOfOrganization || partner.type || "";
-    const partnerStatus = partner.status || "";
-    const partnerDuration =
-      partner.duration_of_partnership || partner.duration || "";
-
+    const partnerType = partner.partner_institution?.typeOfOrganization || partner.type || '';
+    const partnerStatus = partner.status || '';
+    const partnerDuration = partner.duration_of_partnership || partner.duration || '';
+    
     // Filter by partner types
     if (filters.types.length > 0 && !filters.types.includes(partnerType)) {
       return false;
     }
-
+    
     // Filter by status
-    if (
-      filters.statuses.length > 0 &&
-      !filters.statuses.includes(partner.status)
-    ) {
+    if (filters.statuses.length > 0 && !filters.statuses.includes(partnerStatus)) {
       return false;
-    } // Filter by duration type
+    }
+    
+    // Filter by duration type
     if (filters.durations.length > 0) {
-      const durationMatch = filters.durations.some((duration) => {
-        if (duration === "Less than 1 year") {
+      const durationMatch = filters.durations.some(duration => {
+        if (duration === 'Less than 1 year') {
           return getDurationInMonths(partnerDuration) < 12;
-        } else if (duration === "1-2 years") {
+        } else if (duration === '1-2 years') {
           const months = getDurationInMonths(partnerDuration);
           return months >= 12 && months <= 24;
-        } else if (duration === "More than 2 years") {
+        } else if (duration === 'More than 2 years') {
           return getDurationInMonths(partnerDuration) > 24;
         }
         return false;
       });
-
+      
       if (!durationMatch) return false;
     }
-
+    
     return true;
   });
 };
@@ -84,40 +77,33 @@ export const applyFilters = (partners, filters) => {
  */
 export const sortPartners = (partners, column, direction) => {
   const sortedPartners = [...partners];
-
+  
   sortedPartners.sort((a, b) => {
     let valueA, valueB;
-
+    
     // Handle nested properties based on column
-    if (column === "name") {
-      valueA = a.partner_institution?.name || a.name || "";
-      valueB = b.partner_institution?.name || b.name || "";
-    } else if (column === "type") {
-      valueA = a.partner_institution?.typeOfOrganization || a.type || "";
-      valueB = b.partner_institution?.typeOfOrganization || b.type || "";
-    } else if (column === "duration") {
-      valueA = getDurationInMonths(
-        a.duration_of_partnership || a.duration || ""
-      );
-      valueB = getDurationInMonths(
-        b.duration_of_partnership || b.duration || ""
-      );
-    } else if (column === "contact") {
-      valueA = a.partner_contact_person?.name || a.contact || "";
-      valueB = b.partner_contact_person?.name || b.contact || "";
-    } else if (column === "college") {
-      valueA = a.aau_contact?.interestedCollegeOrDepartment || a.college || "";
-      valueB = b.aau_contact?.interestedCollegeOrDepartment || b.college || "";
+    if (column === 'name') {
+      valueA = a.partner_institution?.name || a.name || '';
+      valueB = b.partner_institution?.name || b.name || '';
+    } else if (column === 'type') {
+      valueA = a.partner_institution?.typeOfOrganization || a.type || '';
+      valueB = b.partner_institution?.typeOfOrganization || b.type || '';
+    } else if (column === 'duration') {
+      valueA = getDurationInMonths(a.duration_of_partnership || a.duration || '');
+      valueB = getDurationInMonths(b.duration_of_partnership || b.duration || '');
+    } else if (column === 'college') {
+      valueA = a.aau_contact?.interestedCollegeOrDepartment || a.college || '';
+      valueB = b.aau_contact?.interestedCollegeOrDepartment || b.college || '';
     } else {
-      valueA = a[column] ? String(a[column]).toLowerCase() : "";
-      valueB = b[column] ? String(b[column]).toLowerCase() : "";
+      valueA = a[column] ? String(a[column]).toLowerCase() : '';
+      valueB = b[column] ? String(b[column]).toLowerCase() : '';
     }
-
-    if (valueA < valueB) return direction === "asc" ? -1 : 1;
-    if (valueA > valueB) return direction === "asc" ? 1 : -1;
+    
+    if (valueA < valueB) return direction === 'asc' ? -1 : 1;
+    if (valueA > valueB) return direction === 'asc' ? 1 : -1;
     return 0;
   });
-
+  
   return sortedPartners;
 };
 
@@ -140,17 +126,17 @@ export const paginatePartners = (partners, page, itemsPerPage) => {
  */
 export const getDurationInMonths = (duration) => {
   if (!duration) return 0;
-
+  
   const str = String(duration).toLowerCase();
   const match = str.match(/[\d.]+/);
-
+  
   if (!match) return 0;
-
+  
   const value = parseFloat(match[0]);
-
-  if (str.includes("year")) {
+  
+  if (str.includes('year')) {
     return value * 12;
-  } else if (str.includes("month")) {
+  } else if (str.includes('month')) {
     return value;
   } else {
     return value; // Assume months if unit is not specified
@@ -166,24 +152,14 @@ export const getDurationInMonths = (duration) => {
 export const getUniqueValues = (partners, field) => {
   // Handle nested fields
   let values;
-  if (field === "type") {
-    values = partners.map(
-      (partner) =>
-        partner.partner_institution?.typeOfOrganization || partner.type
-    );
-  } else if (field === "college") {
-    values = partners.map(
-      (partner) =>
-        partner.aau_contact?.interestedCollegeOrDepartment || partner.college
-    );
-  } else if (field === "contact") {
-    values = partners.map(
-      (partner) => partner.partner_contact_person?.name || partner.contact
-    );
+  if (field === 'type') {
+    values = partners.map(partner => partner.partner_institution?.typeOfOrganization || partner.type);
+  } else if (field === 'college') {
+    values = partners.map(partner => partner.aau_contact?.interestedCollegeOrDepartment || partner.college);
   } else {
-    values = partners.map((partner) => partner[field]);
+    values = partners.map(partner => partner[field]);
   }
-
+  
   return [...new Set(values.filter(Boolean))];
 };
 
@@ -193,9 +169,9 @@ export const getUniqueValues = (partners, field) => {
  */
 export const saveFilterState = (filterState) => {
   try {
-    localStorage.setItem("partnershipFilters", JSON.stringify(filterState));
+    localStorage.setItem('partnershipFilters', JSON.stringify(filterState));
   } catch (error) {
-    console.error("Failed to save filter state:", error);
+    console.error('Failed to save filter state:', error);
   }
 };
 
@@ -205,10 +181,10 @@ export const saveFilterState = (filterState) => {
  */
 export const loadFilterState = () => {
   try {
-    const savedState = localStorage.getItem("partnershipFilters");
+    const savedState = localStorage.getItem('partnershipFilters');
     return savedState ? JSON.parse(savedState) : null;
   } catch (error) {
-    console.error("Failed to load filter state:", error);
+    console.error('Failed to load filter state:', error);
     return null;
   }
 };

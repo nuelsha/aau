@@ -63,19 +63,75 @@ export const getPartnerById = async (id) => {
 };
 
 export const createPartner = async (partnerData) => {
-  const { data, error } = await supabase
-    .from("partners")
-    .insert([partnerData])
-    .select();
-  return { data, error };
+  try {
+    // Transform the partnerData to match the database schema
+    const transformedData = {
+      partner_institution: partnerData.partnerInstitution,
+      aau_contact: partnerData.aauContact,
+      potential_areas_of_collaboration:
+        partnerData.potentialAreasOfCollaboration,
+      other_collaboration_area: partnerData.otherCollaborationArea,
+      potential_start_date: partnerData.potentialStartDate,
+      duration_of_partnership: partnerData.durationOfPartnership,
+      partner_contact_person: partnerData.partnerContactPerson,
+      partner_contact_person_secondary:
+        partnerData.partnerContactPersonSecondary,
+      aau_contact_person: partnerData.aauContactPerson,
+      aau_contact_person_secondary: partnerData.aauContactPersonSecondary,
+      status: partnerData.status,
+      campus_id: partnerData.campusId,
+      created_by: partnerData.createdBy,
+      is_archived: partnerData.isArchived || false,
+      mou_file_url: partnerData.mouFileUrl,
+    };
+
+    const { data, error } = await supabase
+      .from("partners")
+      .insert([transformedData])
+      .select();
+
+    if (error) {
+      console.error("Error creating partner:", error);
+      if (error.message && error.message.includes("does not exist")) {
+        throw new Error(
+          "The partners table is not yet set up. Please complete the database setup first."
+        );
+      }
+      throw error;
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error("Exception creating partner:", error);
+    return { data: null, error };
+  }
 };
 
-export const updatePartner = async (id, updates) => {
+export const updatePartner = async (id, partnerData) => {
+  // Transform the partnerData to match the database schema
+  const transformedData = {
+    partner_institution: partnerData.partnerInstitution,
+    aau_contact: partnerData.aauContact,
+    potential_areas_of_collaboration: partnerData.potentialAreasOfCollaboration,
+    other_collaboration_area: partnerData.otherCollaborationArea,
+    potential_start_date: partnerData.potentialStartDate,
+    duration_of_partnership: partnerData.durationOfPartnership,
+    partner_contact_person: partnerData.partnerContactPerson,
+    partner_contact_person_secondary: partnerData.partnerContactPersonSecondary,
+    aau_contact_person: partnerData.aauContactPerson,
+    aau_contact_person_secondary: partnerData.aauContactPersonSecondary,
+    status: partnerData.status,
+    campus_id: partnerData.campusId,
+    is_archived: partnerData.isArchived || false,
+    mou_file_url: partnerData.mouFileUrl,
+  };
+
   const { data, error } = await supabase
     .from("partners")
-    .update(updates)
+    .update(transformedData)
     .eq("id", id)
     .select();
+
   return { data, error };
 };
 

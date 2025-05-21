@@ -1,3 +1,19 @@
+# Supabase Setup Guide for AAU Partnership Management System
+
+This document provides detailed instructions for setting up the Supabase backend for the AAU Partnership Management System.
+
+## Prerequisites
+
+1. Create a Supabase account at [https://supabase.com](https://supabase.com) if you don't already have one
+2. Create a new Supabase project
+3. Save your Supabase URL and anon key in the configuration
+
+## Database Setup
+
+1. Navigate to your Supabase project's SQL Editor
+2. Run the following SQL script to create the partners table:
+
+```sql
 -- Create partners table
 create table if not exists public.partners (
   id uuid primary key default gen_random_uuid(),
@@ -66,3 +82,33 @@ create trigger update_partners_updated_at
 before update on public.partners
 for each row
 execute function public.update_updated_at_column();
+```
+
+3. Verify the table was created correctly by clicking on "Table Editor" and checking if the "partners" table appears.
+
+## Storage Setup (Optional)
+
+If you plan to upload MoU documents:
+
+1. Go to Storage in your Supabase dashboard
+2. Create a new bucket called "partnership-documents"
+3. Set appropriate access policies
+
+## Authentication Setup
+
+1. Go to Authentication > Settings
+2. Configure Email Auth provider settings if needed
+
+## Troubleshooting
+
+### "Table does not exist" error
+
+If you see an error like "relation 'public.partners' does not exist", it means the table has not been created. Follow the database setup instructions above.
+
+### Data formatting issues
+
+Make sure the data being submitted matches the expected format. Check the console for specific error messages.
+
+## Further Help
+
+If you need additional assistance, consult the [Supabase documentation](https://supabase.com/docs) or reach out to the development team.

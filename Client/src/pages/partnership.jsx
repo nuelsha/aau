@@ -71,7 +71,6 @@ const PartnershipDashboard = () => {
     message: "",
     onConfirm: null,
   });
-
   // Fetch partners from Supabase
   useEffect(() => {
     const fetchPartners = async () => {
@@ -80,10 +79,22 @@ const PartnershipDashboard = () => {
         const { data, error } = await getPartners();
 
         if (error) {
-          throw error;
-        }
+          console.error("Error fetching partners:", error.message);
 
-        if (data) {
+          // Handle the specific error for table not existing
+          if (error.message.includes("does not exist")) {
+            showToast(
+              "The partners table is being set up. Try again in a few moments or check the database setup.",
+              "info"
+            );
+
+            // Use sample data while the table is being created
+            setPartners([]);
+            setFilteredPartners([]);
+          } else {
+            throw error;
+          }
+        } else if (data) {
           setPartners(data);
           setFilteredPartners(data);
         }

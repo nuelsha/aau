@@ -1,0 +1,865 @@
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import NavBar from "../components/NavBar";
+import { createPartner } from "../utils/supabase";
+import toast from "react-hot-toast";
+import {
+  Clipboard,
+  Building,
+  Calendar,
+  MapPin,
+  GraduationCap,
+  ActivitySquare,
+  FileText,
+  User,
+  Mail,
+  Phone,
+  ListChecks,
+  FilePlus,
+  Globe,
+  Save,
+  ArrowLeft,
+} from "lucide-react";
+
+// Import options from sampleData
+import {
+  organizationTypes,
+  collaborationAreas,
+  colleges,
+  durations,
+  partnerStatuses
+} from "../features/partnership/data/sampleData";
+
+function AddPartnership() {
+  const navigate = useNavigate();
+  
+  // Initial form state based on the new partnership model
+  const initialFormData = {
+    partnerInstitution: {
+      name: "",
+      address: "",
+      country: "",
+      typeOfOrganization: "Academic"
+    },
+    aauContact: {
+      interestedCollegeOrDepartment: ""
+    },
+    potentialAreasOfCollaboration: ["Research/Technology Transfer"],
+    otherCollaborationArea: "",
+    potentialStartDate: new Date().toISOString().split('T')[0],
+    durationOfPartnership: "1 year",
+    partnerContactPerson: {
+      name: "",
+      title: "",
+      institutionalEmail: "",
+      phoneNumber: "",
+      address: ""
+    },
+    partnerContactPersonSecondary: {
+      name: "",
+      title: "",
+      institutionalEmail: "",
+      phoneNumber: "",
+      address: ""
+    },
+    aauContactPerson: {
+      name: "",
+      college: "Central",
+      schoolDepartmentUnit: "",
+      institutionalEmail: "",
+      phoneNumber: ""
+    },
+    aauContactPersonSecondary: {
+      name: "",
+      college: "Central",
+      schoolDepartmentUnit: "",
+      institutionalEmail: "",
+      phoneNumber: ""
+    },
+    status: "Pending",
+    campusId: "",
+    isArchived: false,
+    mouFileUrl: ""
+  };
+
+  const [formData, setFormData] = useState(initialFormData);
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [step, setStep] = useState(1); // For multi-step form
+
+  // Handle input change for simple fields
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle input change for nested objects
+  const handleNestedChange = (objectName, fieldName, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [objectName]: {
+        ...prev[objectName],
+        [fieldName]: value
+      }
+    }));
+  };
+
+  // Handle array input changes
+  const handleArrayChange = (name, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: Array.isArray(value) ? value : [value]
+    }));
+  };
+
+  // Validate form fields
+  const validateForm = () => {
+    const newErrors = {};
+    
+    // Validate partner institution details
+    if (!formData.partnerInstitution.name) {
+      newErrors['partnerInstitution.name'] = 'Partner name is required';
+    }
+    
+    if (!formData.partnerInstitution.country) {
+      newErrors['partnerInstitution.country'] = 'Country is required';
+    }
+    
+    // Validate AAU contact
+    if (!formData.aauContact.interestedCollegeOrDepartment) {
+      newErrors['aauContact.interestedCollegeOrDepartment'] = 'College/Department is required';
+    }
+    
+    // Validate dates
+    if (!formData.potentialStartDate) {
+      newErrors['potentialStartDate'] = 'Start date is required';
+    }
+
+    // Validate partner contact
+    if (!formData.partnerContactPerson.name) {
+      newErrors['partnerContactPerson.name'] = 'Contact name is required';
+    }
+    
+    if (!formData.partnerContactPerson.institutionalEmail) {
+      newErrors['partnerContactPerson.institutionalEmail'] = 'Contact email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.partnerContactPerson.institutionalEmail)) {
+      newErrors['partnerContactPerson.institutionalEmail'] = 'Invalid email format';
+    }
+    
+    // Validate AAU contact person
+    if (!formData.aauContactPerson.name) {
+      newErrors['aauContactPerson.name'] = 'AAU contact name is required';
+    }
+    
+    if (!formData.aauContactPerson.institutionalEmail) {
+      newErrors['aauContactPerson.institutionalEmail'] = 'AAU contact email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.aauContactPerson.institutionalEmail)) {
+      newErrors['aauContactPerson.institutionalEmail'] = 'Invalid email format';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      toast.error("Please fix the errors in the form");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Add timestamps
+      const submissionData = {
+        ...formData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      const { data, error } = await createPartner(submissionData);
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast.success("Partnership created successfully!");
+      // Redirect to partnerships page
+      navigate("/partnership");
+    } catch (error) {
+      console.error("Failed to create partnership:", error);
+      toast.error(error.message || "Failed to create partnership");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Form sections based on steps
+  const renderFormSection = () => {
+    switch(step) {
+      case 1:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Partner Institution Details</h3>
+            
+            {/* Partner Name */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700">Partner Institution Name *</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Building className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={formData.partnerInstitution.name}
+                  onChange={(e) => handleNestedChange('partnerInstitution', 'name', e.target.value)}
+                  className={`block w-full pl-10 pr-3 py-2 border ${errors['partnerInstitution.name'] ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                  placeholder="e.g., University of Michigan"
+                />
+              </div>
+              {errors['partnerInstitution.name'] && (
+                <p className="mt-1 text-sm text-red-500">{errors['partnerInstitution.name']}</p>
+              )}
+            </div>
+            
+            {/* Address */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700">Address</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <MapPin className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={formData.partnerInstitution.address}
+                  onChange={(e) => handleNestedChange('partnerInstitution', 'address', e.target.value)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="Street address"
+                />
+              </div>
+            </div>
+            
+            {/* Country */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700">Country *</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Globe className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={formData.partnerInstitution.country}
+                  onChange={(e) => handleNestedChange('partnerInstitution', 'country', e.target.value)}
+                  className={`block w-full pl-10 pr-3 py-2 border ${errors['partnerInstitution.country'] ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                  placeholder="e.g., Ethiopia"
+                />
+              </div>
+              {errors['partnerInstitution.country'] && (
+                <p className="mt-1 text-sm text-red-500">{errors['partnerInstitution.country']}</p>
+              )}
+            </div>
+            
+            {/* Organization Type */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700">Type of Organization *</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Building className="h-5 w-5 text-gray-400" />
+                </div>
+                <select
+                  value={formData.partnerInstitution.typeOfOrganization}
+                  onChange={(e) => handleNestedChange('partnerInstitution', 'typeOfOrganization', e.target.value)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                  {organizationTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 2:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Partnership Details</h3>
+            
+            {/* Interested College/Department */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700">Interested College/Department at AAU *</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <GraduationCap className="h-5 w-5 text-gray-400" />
+                </div>
+                <select
+                  value={formData.aauContact.interestedCollegeOrDepartment}
+                  onChange={(e) => handleNestedChange('aauContact', 'interestedCollegeOrDepartment', e.target.value)}
+                  className={`block w-full pl-10 pr-3 py-2 border ${errors['aauContact.interestedCollegeOrDepartment'] ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                >
+                  <option value="">Select a College</option>
+                  {colleges.map((college) => (
+                    <option key={college} value={college}>
+                      {college}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {errors['aauContact.interestedCollegeOrDepartment'] && (
+                <p className="mt-1 text-sm text-red-500">{errors['aauContact.interestedCollegeOrDepartment']}</p>
+              )}
+            </div>
+            
+            {/* Collaboration Areas */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700">Areas of Collaboration *</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <ActivitySquare className="h-5 w-5 text-gray-400" />
+                </div>
+                <select
+                  multiple
+                  value={formData.potentialAreasOfCollaboration}
+                  onChange={(e) => {
+                    const options = [...e.target.options];
+                    const selectedValues = options
+                      .filter(option => option.selected)
+                      .map(option => option.value);
+                    handleArrayChange('potentialAreasOfCollaboration', selectedValues);
+                  }}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  size={5}
+                >
+                  {collaborationAreas.map((area) => (
+                    <option key={area} value={area}>
+                      {area}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">Hold Ctrl (or Cmd) to select multiple areas</p>
+              </div>
+            </div>
+            
+            {/* Other Collaboration Area */}
+            {formData.potentialAreasOfCollaboration.includes('Other') && (
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700">Other Collaboration Area</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <ActivitySquare className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.otherCollaborationArea}
+                    onChange={(e) => handleChange(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="Please specify"
+                    name="otherCollaborationArea"
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* Start Date */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700">Potential Start Date *</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Calendar className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="date"
+                  value={formData.potentialStartDate}
+                  onChange={(e) => handleChange(e)}
+                  className={`block w-full pl-10 pr-3 py-2 border ${errors['potentialStartDate'] ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                  name="potentialStartDate"
+                />
+              </div>
+              {errors['potentialStartDate'] && (
+                <p className="mt-1 text-sm text-red-500">{errors['potentialStartDate']}</p>
+              )}
+            </div>
+            
+            {/* Duration */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700">Duration of Partnership *</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Calendar className="h-5 w-5 text-gray-400" />
+                </div>
+                <select
+                  value={formData.durationOfPartnership}
+                  onChange={(e) => handleChange(e)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  name="durationOfPartnership"
+                >
+                  {durations.map((duration) => (
+                    <option key={duration} value={duration}>
+                      {duration}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 3:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Partner Contact Information</h3>
+            
+            {/* Primary Contact Person */}
+            <div className="p-4 border border-gray-200 rounded-md">
+              <h4 className="text-md font-medium mb-4">Primary Contact Person</h4>
+              
+              {/* Contact Name */}
+              <div className="form-group mb-4">
+                <label className="block text-sm font-medium text-gray-700">Name *</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.partnerContactPerson.name}
+                    onChange={(e) => handleNestedChange('partnerContactPerson', 'name', e.target.value)}
+                    className={`block w-full pl-10 pr-3 py-2 border ${errors['partnerContactPerson.name'] ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                    placeholder="Full name"
+                  />
+                </div>
+                {errors['partnerContactPerson.name'] && (
+                  <p className="mt-1 text-sm text-red-500">{errors['partnerContactPerson.name']}</p>
+                )}
+              </div>
+              
+              {/* Title/Position */}
+              <div className="form-group mb-4">
+                <label className="block text-sm font-medium text-gray-700">Title/Position</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Clipboard className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.partnerContactPerson.title}
+                    onChange={(e) => handleNestedChange('partnerContactPerson', 'title', e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="e.g., Director of International Relations"
+                  />
+                </div>
+              </div>
+              
+              {/* Email */}
+              <div className="form-group mb-4">
+                <label className="block text-sm font-medium text-gray-700">Institutional Email *</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="email"
+                    value={formData.partnerContactPerson.institutionalEmail}
+                    onChange={(e) => handleNestedChange('partnerContactPerson', 'institutionalEmail', e.target.value)}
+                    className={`block w-full pl-10 pr-3 py-2 border ${errors['partnerContactPerson.institutionalEmail'] ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                    placeholder="email@institution.com"
+                  />
+                </div>
+                {errors['partnerContactPerson.institutionalEmail'] && (
+                  <p className="mt-1 text-sm text-red-500">{errors['partnerContactPerson.institutionalEmail']}</p>
+                )}
+              </div>
+              
+              {/* Phone */}
+              <div className="form-group mb-4">
+                <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.partnerContactPerson.phoneNumber}
+                    onChange={(e) => handleNestedChange('partnerContactPerson', 'phoneNumber', e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="+251 911234567"
+                  />
+                </div>
+              </div>
+              
+              {/* Address */}
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700">Address</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <MapPin className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.partnerContactPerson.address}
+                    onChange={(e) => handleNestedChange('partnerContactPerson', 'address', e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="Contact address"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Secondary Contact Person */}
+            <div className="p-4 border border-gray-200 rounded-md">
+              <h4 className="text-md font-medium mb-4">Secondary Contact Person (Optional)</h4>
+              
+              {/* Contact Name */}
+              <div className="form-group mb-4">
+                <label className="block text-sm font-medium text-gray-700">Name</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.partnerContactPersonSecondary.name}
+                    onChange={(e) => handleNestedChange('partnerContactPersonSecondary', 'name', e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="Full name"
+                  />
+                </div>
+              </div>
+              
+              {/* More fields for secondary contact... similar to primary */}
+              <div className="form-group mb-4">
+                <label className="block text-sm font-medium text-gray-700">Institutional Email</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="email"
+                    value={formData.partnerContactPersonSecondary.institutionalEmail}
+                    onChange={(e) => handleNestedChange('partnerContactPersonSecondary', 'institutionalEmail', e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="email@institution.com"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+        
+      case 4:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">AAU Contact Information</h3>
+            
+            {/* AAU Primary Contact Person */}
+            <div className="p-4 border border-gray-200 rounded-md">
+              <h4 className="text-md font-medium mb-4">AAU Primary Contact Person</h4>
+              
+              {/* Contact Name */}
+              <div className="form-group mb-4">
+                <label className="block text-sm font-medium text-gray-700">Name *</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.aauContactPerson.name}
+                    onChange={(e) => handleNestedChange('aauContactPerson', 'name', e.target.value)}
+                    className={`block w-full pl-10 pr-3 py-2 border ${errors['aauContactPerson.name'] ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                    placeholder="Full name"
+                  />
+                </div>
+                {errors['aauContactPerson.name'] && (
+                  <p className="mt-1 text-sm text-red-500">{errors['aauContactPerson.name']}</p>
+                )}
+              </div>
+              
+              {/* College */}
+              <div className="form-group mb-4">
+                <label className="block text-sm font-medium text-gray-700">College *</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <GraduationCap className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <select
+                    value={formData.aauContactPerson.college}
+                    onChange={(e) => handleNestedChange('aauContactPerson', 'college', e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  >
+                    {colleges.map((college) => (
+                      <option key={college} value={college}>
+                        {college}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              {/* School/Department/Unit */}
+              <div className="form-group mb-4">
+                <label className="block text-sm font-medium text-gray-700">School/Department/Unit</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Building className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.aauContactPerson.schoolDepartmentUnit}
+                    onChange={(e) => handleNestedChange('aauContactPerson', 'schoolDepartmentUnit', e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="Department name"
+                  />
+                </div>
+              </div>
+              
+              {/* Email */}
+              <div className="form-group mb-4">
+                <label className="block text-sm font-medium text-gray-700">Institutional Email *</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="email"
+                    value={formData.aauContactPerson.institutionalEmail}
+                    onChange={(e) => handleNestedChange('aauContactPerson', 'institutionalEmail', e.target.value)}
+                    className={`block w-full pl-10 pr-3 py-2 border ${errors['aauContactPerson.institutionalEmail'] ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+                    placeholder="email@aau.edu.et"
+                  />
+                </div>
+                {errors['aauContactPerson.institutionalEmail'] && (
+                  <p className="mt-1 text-sm text-red-500">{errors['aauContactPerson.institutionalEmail']}</p>
+                )}
+              </div>
+              
+              {/* Phone */}
+              <div className="form-group">
+                <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.aauContactPerson.phoneNumber}
+                    onChange={(e) => handleNestedChange('aauContactPerson', 'phoneNumber', e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="+251 911234567"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* AAU Secondary Contact fields would go here - similar to primary */}
+          </div>
+        );
+        
+      case 5:
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Additional Details</h3>
+            
+            {/* Status */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700">Partnership Status</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <ListChecks className="h-5 w-5 text-gray-400" />
+                </div>
+                <select
+                  value={formData.status}
+                  onChange={(e) => handleChange(e)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  name="status"
+                >
+                  {partnerStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            {/* MoU Document */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700">MoU Document (if available)</label>
+              <div className="mt-1 relative">
+                <label className="flex items-center justify-center w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
+                  <FilePlus className="mr-2 h-5 w-5 text-gray-400" />
+                  <span>Upload MoU document</span>
+                  <input
+                    type="file"
+                    className="sr-only"
+                    onChange={(e) => {
+                      // In a real implementation, you would upload this file to Supabase storage
+                      // and store the URL in formData.mouFileUrl
+                      console.log('File selected:', e.target.files[0]);
+                      // Placeholder for file upload
+                      if (e.target.files[0]) {
+                        setFormData({
+                          ...formData,
+                          mouFileUrl: URL.createObjectURL(e.target.files[0]) // This is just for preview
+                        });
+                      }
+                    }}
+                    accept=".pdf,.doc,.docx"
+                  />
+                </label>
+                {formData.mouFileUrl && (
+                  <div className="mt-2 text-sm text-green-600">
+                    Document ready for upload
+                  </div>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-gray-500">Accepted formats: PDF, DOC, DOCX</p>
+            </div>
+            
+            {/* Campus ID */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700">Campus ID (if applicable)</label>
+              <div className="mt-1 relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Clipboard className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={formData.campusId}
+                  onChange={(e) => handleChange(e)}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="Campus identifier"
+                  name="campusId"
+                />
+              </div>
+            </div>
+          </div>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  // Form navigation
+  const nextStep = () => {
+    setStep(step + 1);
+  };
+  
+  const prevStep = () => {
+    setStep(step - 1);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <NavBar />
+      
+      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          {/* Header */}
+          <div className="bg-[#004165] p-4 sm:p-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white">Add New Partnership</h2>
+              <button
+                onClick={() => navigate("/partnership")}
+                className="text-white hover:text-gray-200 transition-colors flex items-center"
+              >
+                <ArrowLeft className="mr-1 h-5 w-5" />
+                Back to Partnerships
+              </button>
+            </div>
+            <p className="text-blue-100 mt-1">
+              Create a new partner institution record
+            </p>
+          </div>
+          
+          {/* Progress Steps */}
+          <div className="px-4 py-3 bg-gray-50 border-b">
+            <div className="flex justify-between">
+              {[1, 2, 3, 4, 5].map((stepNum) => (
+                <div key={stepNum} className="flex flex-col items-center">
+                  <div 
+                    className={`w-8 h-8 flex items-center justify-center rounded-full ${
+                      stepNum === step ? 'bg-[#004165] text-white' : 
+                      stepNum < step ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    {stepNum < step ? '✓' : stepNum}
+                  </div>
+                  <span className="text-xs mt-1 hidden sm:block">
+                    {stepNum === 1 && 'Institution'}
+                    {stepNum === 2 && 'Partnership'}
+                    {stepNum === 3 && 'Partner Contact'}
+                    {stepNum === 4 && 'AAU Contact'}
+                    {stepNum === 5 && 'Additional'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Form Content */}
+          <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+            {renderFormSection()}
+            
+            {/* Navigation Buttons */}
+            <div className="mt-8 flex justify-between">
+              {step > 1 && (
+                <button
+                  type="button"
+                  onClick={prevStep}
+                  className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+              )}
+              
+              <div className="flex-1"></div>
+              
+              {step < 5 ? (
+                <button
+                  type="button"
+                  onClick={nextStep}
+                  className="px-4 py-2 bg-[#004165] text-white text-sm font-medium rounded-md hover:bg-[#003050] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#004165]"
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex items-center px-4 py-2 bg-[#004165] text-white text-sm font-medium rounded-md hover:bg-[#003050] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#004165] disabled:opacity-70"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Submit Partnership
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default AddPartnership;
