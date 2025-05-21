@@ -1,60 +1,61 @@
 import React, { useState, useEffect } from "react";
-import {
-  Search,
-  Filter,
-  Plus,
-  ChevronDown,
-  ChevronUp,
-  X,
-} from "lucide-react";
+import { Search, Filter, Plus, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Link } from "react-router-dom";
 
 // Components
 import NavBar from "../components/NavBar";
 import FilterButton from "../features/partnership/components/FilterButton";
-import FilterDropdown from '../features/partnership/components/FilterDropdown';
-import TableHeader from '../features/partnership/components/TableHeader';
-import PartnerRow from '../features/partnership/components/PartnerRow';
-import Pagination from '../features/partnership/components/Pagination';
-import Toast from '../features/partnership/components/Toast';
-import ConfirmDialog from '../features/partnership/components/ConfirmDialog';
+import FilterDropdown from "../features/partnership/components/FilterDropdown";
+import TableHeader from "../features/partnership/components/TableHeader";
+import PartnerRow from "../features/partnership/components/PartnerRow";
+import Pagination from "../features/partnership/components/Pagination";
+import Toast from "../features/partnership/components/Toast";
+import ConfirmDialog from "../features/partnership/components/ConfirmDialog";
 import FilterDialog from "../features/partnership/components/FilterDialog";
 
 // Data and utilities
 import {
-  samplePartners,
   partnerTypes,
   partnerStatuses,
   durationCategories,
-  tableColumns
-} from '../features/partnership/data/sampleData';
+  tableColumns,
+} from "../features/partnership/data/sampleData";
+import {
+  supabase,
+  getPartners,
+  deletePartner as deletePartnerApi,
+} from "../utils/supabase";
 import {
   filterBySearch,
   applyFilters,
   sortPartners,
-  paginatePartners
-} from '../features/partnership/utils/partnershipUtils';
-import useLocalStorage from '../features/partnership/hooks/useLocalStorage';
+  paginatePartners,
+} from "../features/partnership/utils/partnershipUtils";
+import useLocalStorage from "../features/partnership/hooks/useLocalStorage";
 
 const PartnershipDashboard = () => {
   // State for search and filters
   const [searchQuery, setSearchQuery] = useState("");
-  const [partners, setPartners] = useState(samplePartners);
-  const [filteredPartners, setFilteredPartners] = useState(partners);
+  const [partners, setPartners] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filteredPartners, setFilteredPartners] = useState([]);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
 
   // Filter states
-  const [activeFilterButton, setActiveFilterButton] = useLocalStorage("activeFilterButton", "name");
+  const [activeFilterButton, setActiveFilterButton] = useLocalStorage(
+    "activeFilterButton",
+    "name"
+  );
   const [filters, setFilters] = useLocalStorage("partnershipFilters", {
     types: [],
     statuses: [],
-    durations: []
+    durations: [],
   });
 
   // Sorting state
   const [sortConfig, setSortConfig] = useLocalStorage("partnershipSort", {
     column: "name",
-    direction: "asc"
+    direction: "asc",
   });
 
   // Pagination state
@@ -68,8 +69,34 @@ const PartnershipDashboard = () => {
     isOpen: false,
     title: "",
     message: "",
-    onConfirm: null
+    onConfirm: null,
   });
+
+  // Fetch partners from Supabase
+  useEffect(() => {
+    const fetchPartners = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await getPartners();
+
+        if (error) {
+          throw error;
+        }
+
+        if (data) {
+          setPartners(data);
+          setFilteredPartners(data);
+        }
+      } catch (error) {
+        console.error("Error fetching partners:", error.message);
+        showToast("Failed to load partners", "error");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPartners();
+  }, []);
 
   // Apply filters, sorting, and search
   useEffect(() => {
@@ -96,25 +123,39 @@ const PartnershipDashboard = () => {
 
   // Handle sorting
   const handleSort = (column, direction) => {
-    if (column === 'actions') return; // Don't sort by actions column
+    if (column === "actions") return; // Don't sort by actions column
 
     setSortConfig({
       column,
-      direction
+      direction,
     });
   };
-
   // Handle partner delete
   const handleDeletePartner = (partnerId) => {
     setConfirmDialog({
       isOpen: true,
       title: "Delete Partner",
-      message: "Are you sure you want to delete this partner? This action cannot be undone.",
-      onConfirm: () => {
-        setPartners(prev => prev.filter(partner => partner.id !== partnerId));
-        showToast("Partner deleted successfully", "success");
-        setConfirmDialog({ ...confirmDialog, isOpen: false });
-      }
+      message:
+        "Are you sure you want to delete this partner? This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          const { error } = await deletePartnerApi(partnerId);
+
+          if (error) {
+            throw error;
+          }
+
+          setPartners((prev) =>
+            prev.filter((partner) => partner.id !== partnerId)
+          );
+          showToast("Partner deleted successfully", "success");
+        } catch (error) {
+          console.error("Error deleting partner:", error.message);
+          showToast("Failed to delete partner", "error");
+        } finally {
+          setConfirmDialog({ ...confirmDialog, isOpen: false });
+        }
+      },
     });
   };
 
@@ -135,26 +176,31 @@ const PartnershipDashboard = () => {
     setFilters({
       types: [],
       statuses: [],
-      durations: []
+      durations: [],
     });
     setSortConfig({
       column: "name",
-      direction: "asc"
+      direction: "asc",
     });
     setActiveFilterButton("name");
     showToast("All filters cleared", "info");
   };
 
   // Get paginated partners for current view
-  const paginatedPartners = paginatePartners(filteredPartners, currentPage, itemsPerPage);
+  const paginatedPartners = paginatePartners(
+    filteredPartners,
+    currentPage,
+    itemsPerPage
+  );
 
   // Check if any filters are active
-  const hasActiveFilters = searchQuery.trim() !== "" ||
+  const hasActiveFilters =
+    searchQuery.trim() !== "" ||
     filters.types.length > 0 ||
     filters.statuses.length > 0 ||
     filters.durations.length > 0;
 
-  const modifiedColumns = tableColumns.filter(col => col.key !== 'selectAll');
+  const modifiedColumns = tableColumns.filter((col) => col.key !== "selectAll");
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -204,15 +250,18 @@ const PartnershipDashboard = () => {
               </div>
               <button
                 onClick={() => setIsFilterDialogOpen(true)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${hasActiveFilters
-                  ? 'bg-[#004165] text-white'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  hasActiveFilters
+                    ? "bg-[#004165] text-white"
+                    : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
               >
                 <Filter className="h-4 w-4" />
                 {hasActiveFilters && (
                   <span className="flex items-center justify-center bg-white text-[#004165] rounded-full w-5 h-5 text-xs">
-                    {filters.types.length + filters.statuses.length + filters.durations.length}
+                    {filters.types.length +
+                      filters.statuses.length +
+                      filters.durations.length}
                   </span>
                 )}
               </button>
@@ -284,9 +333,6 @@ const PartnershipDashboard = () => {
                 />
               </div>
             </div>
-
-
-
           </div>
 
           {/* Partnership Lists */}
@@ -295,15 +341,24 @@ const PartnershipDashboard = () => {
               <h3 className="text-lg font-bold">Partnership Lists</h3>
 
               <div className="text-sm text-gray-600">
-                Showing {Math.min(filteredPartners.length, 1 + (currentPage - 1) * itemsPerPage)}-
-                {Math.min(currentPage * itemsPerPage, filteredPartners.length)} of {filteredPartners.length} partners
+                Showing{" "}
+                {Math.min(
+                  filteredPartners.length,
+                  1 + (currentPage - 1) * itemsPerPage
+                )}
+                -{Math.min(currentPage * itemsPerPage, filteredPartners.length)}{" "}
+                of {filteredPartners.length} partners
               </div>
 
               <button
                 onClick={() => setIsCollapsed(!isCollapsed)}
                 className="text-[#004165] hover:bg-[#004165]/10 p-2 rounded-full transition-colors"
               >
-                {isCollapsed ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+                {isCollapsed ? (
+                  <ChevronDown className="h-5 w-5" />
+                ) : (
+                  <ChevronUp className="h-5 w-5" />
+                )}
               </button>
             </div>
 
@@ -316,8 +371,18 @@ const PartnershipDashboard = () => {
                   onSort={handleSort}
                 />
 
+                {/* Loading State */}
+                {loading && (
+                  <div className="w-full flex justify-center items-center py-12">
+                    <div className="inline-block w-12 h-12 border-4 border-t-[#004165] border-r-[#004165] border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                    <p className="ml-4 text-gray-600">
+                      Loading partners from Supabase...
+                    </p>
+                  </div>
+                )}
+
                 {/* No Results */}
-                {paginatedPartners.length === 0 && (
+                {!loading && paginatedPartners.length === 0 && (
                   <div className="p-8 text-center text-gray-500">
                     <p>No partners found matching your criteria.</p>
                     {hasActiveFilters && (
@@ -332,14 +397,15 @@ const PartnershipDashboard = () => {
                 )}
 
                 {/* Table Rows */}
-                {paginatedPartners.map((partner) => (
-                  <PartnerRow
-                    key={partner.id}
-                    partner={partner}
-                    onDelete={handleDeletePartner}
-                    onEdit={handleEditPartner}
-                  />
-                ))}
+                {!loading &&
+                  paginatedPartners.map((partner) => (
+                    <PartnerRow
+                      key={partner.id}
+                      partner={partner}
+                      onDelete={handleDeletePartner}
+                      onEdit={handleEditPartner}
+                    />
+                  ))}
 
                 {/* Pagination */}
                 <Pagination

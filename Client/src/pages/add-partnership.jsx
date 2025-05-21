@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import NavBar from "../components/NavBar";
-import { createPartnership } from "../api";
+import { createPartner } from "../utils/supabase";
 import toast from "react-hot-toast";
 import {
   Clipboard,
@@ -172,20 +172,24 @@ function AddPartnership() {
     });
 
     try {
-      await createPartnership(payload);
+      const { data, error } = await createPartner(payload);
+
+      if (error) {
+        throw error;
+      }
+
       toast.success("Partnership created successfully!");
       setFormData(initialFormData);
       setErrors({});
     } catch (error) {
       console.error("Failed to create partnership:", error);
       const errorMsg =
-        error.response?.data?.message ||
-        "Failed to create partnership. Please try again.";
+        error.message || "Failed to create partnership. Please try again.";
       toast.error(errorMsg);
-      if (error.response?.data?.errors) {
-        // Assuming backend errors are an object mapping field names to error messages
+
+      if (error.details) {
         const backendErrors = {};
-        for (const [key, value] of Object.entries(error.response.data.errors)) {
+        for (const [key, value] of Object.entries(error.details)) {
           backendErrors[key] = Array.isArray(value) ? value.join(", ") : value;
         }
         setErrors(backendErrors);

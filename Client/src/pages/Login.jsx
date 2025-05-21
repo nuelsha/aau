@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { login } from "../api";
 import { toast } from "react-hot-toast";
 import { Eye, EyeClosed } from "lucide-react";
 import { useUser } from "../context/UserContext";
+import { useAuth } from "../context/AuthContext";
 import aauLogo from "../assets/aauLogo.png";
 import aauimg from "../assets/aauimg.png";
 import logo1 from "../assets/logo1.png";
@@ -20,8 +20,10 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { login: loginContext } = useUser();
+  const { signIn } = useAuth();
 
   const [error, setError] = useState({
     email: "",
@@ -45,59 +47,44 @@ export default function Login() {
 
     if (isEmailValid && isPasswordValid) {
       try {
-        const response = await login({ email, password }); // This is the login function from api.jsx
+        setIsLoading(true);
+        // Use the Supabase signIn method from our Auth context
+        console.log("Attempting to sign in with:", email);
+        const authData = await signIn(email, password);
+        console.log("Auth data received:", authData);
 
-        const userData = response.data;
-
-        // Look for token in different locations
-        // 1. Check if token is in response.data (typical REST API pattern)
-        let token = userData?.token;
-
-        // 2. Check if token is in response headers (common in some APIs)
-        if (!token) {
-          token =
-            response.headers?.authorization?.replace("Bearer ", "") ||
-            response.headers?.["x-auth-token"] ||
-            response.headers?.["authToken"];
-        }
-
-        // 3. If still no token, but we have user data with _id, we could construct a temporary identifier
-        // This is a fallback approach - ideally, the server should send a proper JWT token
-        if (!token && userData?._id) {
-          // Note: This is NOT a real JWT token, just a placeholder. In a real app, the server should provide the token.
-          token = userData._id; // Using the user ID as a minimal token for testing
-          console.warn(
-            "Using user ID as token because no token was found in the response. This is not secure!"
+        if (authData?.session && authData?.user) {
+          // Get the token from the session
+          const token = authData.session.access_token;
+          console.log(
+            "Authenticated successfully with token:",
+            token.substring(0, 15) + "..."
           );
-        }
 
-        if (token && userData) {
+          // Create a user object with needed data
+          const userData = {
+            id: authData.user.id,
+            email: authData.user.email,
+            name: authData.user.user_metadata?.name || email.split("@")[0],
+            role: authData.user.user_metadata?.role || "user",
+          };
+
+          // Login using the existing context
           loginContext(userData, token);
           toast.success("Logged in successfully!");
-          navigate("/partnership");
-        } else {
-          // Still couldn't find a token to use
-          toast.error(
-            "Login successful, but couldn't establish a secure session. Please contact your administrator."
-          );
-          console.error(
-            "Login response did not include a proper token:",
-            userData
-          );
+          navigate("/dashboard");
         }
       } catch (error) {
         console.error("Login error:", error);
-        if (error.response) {
-          if (error.response.status === 400) {
-            toast.error("Invalid email or password");
-          } else if (error.response.status === 500) {
-            toast.error("Server error. Please try again later.");
-          } else {
-            toast.error(error.response.data.error || "Login failed");
-          }
-        } else {
-          toast.error("Network error. Please check your connection.");
+        let errorMessage = "Login failed. Please check your credentials.";
+
+        if (error.message) {
+          errorMessage = error.message;
         }
+
+        toast.error(errorMessage);
+      } finally {
+        setIsLoading(false);
       }
     }
   };
