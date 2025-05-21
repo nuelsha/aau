@@ -212,3 +212,144 @@ export const loadFilterState = () => {
     return null;
   }
 };
+
+/**
+ * Determines the status of a partnership.
+ * @param {Object} partner - The partner object.
+ * @param {Date} currentDate - The current date for comparison.
+ * @returns {string} - Status: "Active", "Expiring Soon", "Expired", "Prospect".
+ */
+export const getPartnerStatus = (partner, currentDate = new Date()) => {
+  if (!partner.potential_start_date || !partner.duration_of_partnership) {
+    return "Prospect"; // Or handle as an error/unknown if these fields are mandatory
+  }
+
+  const startDate = new Date(partner.potential_start_date);
+  const durationMonths = getDurationInMonths(partner.duration_of_partnership);
+
+  if (isNaN(startDate.getTime()) || durationMonths === 0) {
+    return "Prospect"; // Invalid date or duration
+  }
+
+  const endDate = new Date(startDate);
+  endDate.setMonth(startDate.getMonth() + durationMonths);
+
+  const threeMonthsFromNow = new Date(currentDate);
+  threeMonthsFromNow.setMonth(currentDate.getMonth() + 3);
+
+  if (currentDate < startDate) {
+    return "Prospect"; // Not yet started
+  }
+  if (currentDate > endDate) {
+    return "Expired";
+  }
+  if (endDate <= threeMonthsFromNow) {
+    return "Expiring Soon";
+  }
+  return "Active";
+};
+
+/**
+ * Processes raw partnership data for dashboard display.
+ * @param {Array} partners - Array of partner objects from Supabase.
+ * @param {Array} allCollegesList - Array of all unique college names.
+ * @param {Date} currentDate - The current date.
+ * @returns {Object} - { collegeStats, timeSeriesData }
+ */
+export const processPartnershipDataForDashboard = (
+  partners,
+  allCollegesList,
+  currentDate = new Date()
+) => {
+  const collegeStats = {};
+  allCollegesList.forEach((college) => {
+    // Ensure 'All Colleges' is not added here if it's just a filter option
+    if (college !== "All Colleges") {
+      collegeStats[college] = {
+        active: 0,
+        expiringSoon: 0,
+        expired: 0,
+        prospect: 0,
+        total: 0,
+      };
+    }
+  });
+
+  // Initialize for 'All Colleges' totals
+  const overallTotals = {
+    active: 0,
+    expiringSoon: 0,
+    expired: 0,
+    prospect: 0,
+    total: 0,
+  };
+
+  const monthlyData = {
+    active: Array(12).fill(0),
+    expired: Array(12).fill(0),
+    expiringSoon: Array(12).fill(0),
+  };
+  partners.forEach((partner) => {
+    const status = getPartnerStatus(partner, currentDate);
+    const collegeName = partner.aau_contact?.interestedCollegeOrDepartment;
+
+    if (collegeName && collegeStats[collegeName]) {
+      collegeStats[collegeName][status.toLowerCase().replace(" ", "")]++;
+      collegeStats[collegeName].total++;
+    }
+    // Aggregate for overall totals
+    overallTotals[status.toLowerCase().replace(" ", "")]++;
+    overallTotals.total++;
+
+    // Aggregate monthly data for line chart (for the current year)
+    const startDate = new Date(partner.potential_start_date);
+    const durationMonths = getDurationInMonths(partner.duration_of_partnership);
+    const endDate = new Date(startDate);
+    if (durationMonths > 0) {
+      endDate.setMonth(startDate.getMonth() + durationMonths);
+    }
+
+    const partnershipYear = startDate.getFullYear();
+    const currentYear = currentDate.getFullYear();
+    // Consider partnerships active in the current year for the line chart
+    // This logic can be refined based on how "active in month X" is defined
+    if (
+      partnershipYear === currentYear ||
+      (startDate < currentDate && endDate > new Date(currentYear, 0, 1))
+    ) {
+      for (let month = 0; month < 12; month++) {
+        const monthStart = new Date(currentYear, month, 1);
+        const monthEnd = new Date(currentYear, month + 1, 0);
+
+        // Check if partnership overlaps with the month
+        const isActiveInMonth = startDate <= monthEnd && endDate >= monthStart;
+
+        if (isActiveInMonth) {
+          const statusInMonth = getPartnerStatus(partner, monthEnd); // Status at the end of the month
+          if (statusInMonth === "Active") {
+            monthlyData.active[month]++;
+          }
+          if (statusInMonth === "Expiring Soon") {
+            monthlyData.expiringSoon[month]++;
+          }
+          // For 'Expired', we count if it expired *within* or *before* this month of the current year
+          if (
+            endDate < monthEnd &&
+            endDate.getFullYear() === currentYear &&
+            endDate.getMonth() === month
+          ) {
+            monthlyData.expired[month]++;
+          }
+        }
+      }
+    }
+  });
+
+  return {
+    collegeStats: {
+      ...collegeStats,
+      "All Colleges": overallTotals, // Add aggregated totals for 'All Colleges'
+    },
+    timeSeriesData: monthlyData,
+  };
+};
